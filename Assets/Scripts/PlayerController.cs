@@ -4,41 +4,65 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Settings")]
     public float moveSpeed = 5f;
+    public float jumpForce = 10f; // Kekuatan lompat
+
+    [Header("Ground Detection")]
+    public Transform groundCheck; // Drag objek GroundCheck kesini
+    public LayerMask whatIsGround; // Pilih layer Ground
+    public float checkRadius = 0.2f;
 
     private Rigidbody2D rb;
-    private Vector2 movement; // Menyimpan input X dan Y
+    private Animator animator;
     private SpriteRenderer spriteRenderer;
+
+    private float moveInput;
+    private bool isGrounded;
+    private bool isJumping;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
         spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     void Update()
     {
-        // 1. Menerima Input (Horizontal & Vertical)
-        // Horizontal = A/D atau Panah Kiri/Kanan
-        // Vertical = W/S atau Panah Atas/Bawah
-        movement.x = Input.GetAxisRaw("Horizontal");
-        movement.y = Input.GetAxisRaw("Vertical");
+        // 1. Cek apakah kaki menyentuh tanah?
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, whatIsGround);
 
-        // 2. Membalik Badan (Hanya saat gerak kiri/kanan)
-        if (movement.x > 0)
+        // 2. Input Gerak Kiri/Kanan
+        moveInput = Input.GetAxisRaw("Horizontal");
+
+        // 3. Input Lompat (Panah Atas)
+        // Hanya bisa lompat jika ada di tanah (isGrounded)
+        if (Input.GetKeyDown(KeyCode.UpArrow) && isGrounded)
         {
-            spriteRenderer.flipX = false;
+            Jump();
         }
-        else if (movement.x < 0)
-        {
-            spriteRenderer.flipX = true;
-        }
+
+        // 4. Update Animasi
+        animator.SetFloat("Speed", Mathf.Abs(moveInput)); // Pakai Abs agar nilai -1 jadi 1
+        animator.SetBool("IsJumping", !isGrounded); // Jika tidak di tanah = Jumping
+
+        // 5. Flip Badan
+        if (moveInput > 0) spriteRenderer.flipX = false;
+        else if (moveInput < 0) spriteRenderer.flipX = true;
     }
 
     void FixedUpdate()
     {
-        // 3. Menggerakkan Fisika Karakter ke Segala Arah
-        // normalize agar saat jalan miring (diagonal) kecepatannya tidak dobel
-        rb.velocity = movement.normalized * moveSpeed;
+        // Gerak Kiri Kanan (Y tetap mengikuti velocity yang ada agar gravitasi bekerja)
+        rb.velocity = new Vector2(moveInput * moveSpeed, rb.velocity.y);
+    }
+
+    void Jump()
+    {
+        // Reset kecepatan Y agar lompatan konsisten
+        rb.velocity = new Vector2(rb.velocity.x, 0);
+        // Tambah gaya ke atas
+        rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
     }
 }
